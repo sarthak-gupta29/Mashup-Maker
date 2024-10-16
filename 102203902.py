@@ -1,56 +1,87 @@
-# 102203902.py
-import yt_dlp
-import moviepy.editor as mp
+import sys
 import os
-import zipfile
+from pytube import Search
+from moviepy.editor import VideoFileClip, concatenate_audioclips
 
-# Function to download videos using yt-dlp
-def download_video(video_url, output_folder):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': f'{output_folder}/%(title)s.%(ext)s',
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([video_url])
+def download_videos(singer_name, number_of_videos):
+    search_query = Search(singer_name)
+    results = search_query.results
+    downloaded_files = []
+    
+    if len(results) < number_of_videos:
+        print(f"Only {len(results)} videos found. Downloading all of them.")
+        number_of_videos = len(results)
 
-# Function to extract and merge audio files, starting from 2 seconds
-def merge_audio_files(audio_folder, output_file):
-    audio_files = [f for f in os.listdir(audio_folder) if f.endswith('.mp3')]
-    audio_clips = [mp.AudioFileClip(os.path.join(audio_folder, f)).subclip(2) for f in audio_files]  # Start at 2 seconds
-    merged_audio = mp.concatenate_audioclips(audio_clips)
-    merged_audio.write_audiofile(output_file)
-    print(f"Merged audio saved to {output_file}")
+    for i, video in enumerate(results[:number_of_videos]):
+        try:
+            print(f"Downloading video {i + 1}/{number_of_videos}: {video.title}")
+            video_file = video.streams.filter(only_audio=True).first().download(filename=f"video_{i}.mp4")
+            downloaded_files.append(video_file)
+        except Exception as e:
+            print(f"Error downloading video {i + 1}: {e}. Skipping this video.")
 
-# Zipping the final merged audio file
-def zip_audio_file(audio_file, zip_file):
-    with zipfile.ZipFile(zip_file, 'w') as zipf:
-        zipf.write(audio_file, os.path.basename(audio_file))
-    print(f"{audio_file} has been zipped into {zip_file}")
+    return downloaded_files
 
-# Example usage
-video_urls = [
-    'https://www.youtube.com/watch?v=example1',  # Replace with actual URLs
-    'https://www.youtube.com/watch?v=example2'
-]
-output_folder = 'downloads/audio_files'  # Update this to your path
-merged_output = os.path.join(output_folder, 'merged_audio.mp3')
-zip_output = os.path.join(output_folder, 'merged_audio.zip')
+def convert_videos_to_audio(downloaded_files, audio_duration):
+    audio_clips = []
 
-# Ensure the output folder exists
-if not os.path.exists(output_folder):
-    os.makedirs(output_folder)
+    for i, video_file in enumerate(downloaded_files):
+        try:
+            print(f"Processing video {i + 1}/{len(downloaded_files)}: Converting to audio and cutting {audio_duration} seconds.")
+            video_clip = VideoFileClip(video_file)
+            audio_clip = video_clip.audio.subclip(0, audio_duration)
+            audio_clips.append(audio_clip)
+            video_clip.close()
+        except Exception as e:
+            print(f"Error processing video {i + 1}: {e}. Skipping this file.")
 
-# Download videos
-for video_url in video_urls:
-    download_video(video_url, output_folder)
+    return audio_clips
 
-# Merge audio files
-merge_audio_files(output_folder, merged_output)
+def merge_audios(audio_clips, output_file_name):
+    print(f"Merging {len(audio_clips)} audio clips into {output_file_name}")
+    merged_audio = concatenate_audioclips(audio_clips)
+    merged_audio.write_audiofile(output_file_name)
 
-# Zip the merged file
-zip_audio_file(merged_output, zip_output)
+def cleanup(downloaded_files):
+    for file in downloaded_files:
+        os.remove(file)
+
+def main():
+    if len(sys.argv) != 5:
+        print("Usage: python <program.py> <SingerName> <NumberOfVideos> <AudioDuration> <OutputFileName>")
+        sys.exit(1)
+
+    try:
+        singer_name = sys.argv[1]
+        number_of_videos = int(sys.argv[2])
+        audio_duration = int(sys.argv[3])
+        output_file_name = sys.argv[4]
+
+        if number_of_videos < 2:
+            print("Please specify a number of videos greater than 2.")
+            sys.exit(1)
+
+        if audio_duration < 20:
+            print("Please specify an audio duration greater than 20 seconds.")
+            sys.exit(1)
+
+        # Step 1: Download videos
+        downloaded_files = download_videos(singer_name, number_of_videos)
+
+        # Step 2: Convert videos to audio and cut duration
+        audio_clips = convert_videos_to_audio(downloaded_files, audio_duration)
+
+        # Step 3: Merge audio clips
+        merge_audios(audio_clips, output_file_name)
+
+        # Step 4: Cleanup
+        cleanup(downloaded_files)
+
+        print(f"Successfully created {output_file_name}")
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
