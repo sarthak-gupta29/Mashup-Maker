@@ -1,6 +1,5 @@
 import sys
 import os
-import re
 from pytube import Search
 from moviepy.editor import VideoFileClip, concatenate_audioclips
 
@@ -8,19 +7,18 @@ def download_videos(singer_name, number_of_videos):
     search_query = Search(singer_name)
     results = search_query.results
     downloaded_files = []
-
+    
     if len(results) < number_of_videos:
         print(f"Only {len(results)} videos found. Downloading all of them.")
         number_of_videos = len(results)
 
     for i, video in enumerate(results[:number_of_videos]):
-        # Sanitize the video title
-        sanitized_title = re.sub(r'[\\/*?:"<>|]', "", video.title)  # Remove special characters
-        sanitized_title = sanitized_title.replace(' ', '_')  # Replace spaces with underscores
-        
-        print(f"Downloading video {i + 1}/{number_of_videos}: {video.title}")
-        video_file = video.streams.filter(only_audio=True).first().download(filename=f"{sanitized_title}.mp4")
-        downloaded_files.append(video_file)
+        try:
+            print(f"Downloading video {i + 1}/{number_of_videos}: {video.title}")
+            video_file = video.streams.filter(only_audio=True).first().download(filename=f"video_{i}.mp4")
+            downloaded_files.append(video_file)
+        except Exception as e:
+            print(f"Error downloading video {i + 1}: {e}. Skipping this video.")
 
     return downloaded_files
 
@@ -28,12 +26,14 @@ def convert_videos_to_audio(downloaded_files, audio_duration):
     audio_clips = []
 
     for i, video_file in enumerate(downloaded_files):
-        print(f"Processing video {i + 1}/{len(downloaded_files)}: Converting to audio and cutting {audio_duration} seconds.")
-        video_clip = VideoFileClip(video_file)
-        # Start audio from 2 seconds instead of 0
-        audio_clip = video_clip.audio.subclip(2, audio_duration + 2)
-        audio_clips.append(audio_clip)
-        video_clip.close()
+        try:
+            print(f"Processing video {i + 1}/{len(downloaded_files)}: Converting to audio and cutting {audio_duration} seconds.")
+            video_clip = VideoFileClip(video_file)
+            audio_clip = video_clip.audio.subclip(0, audio_duration)
+            audio_clips.append(audio_clip)
+            video_clip.close()
+        except Exception as e:
+            print(f"Error processing video {i + 1}: {e}. Skipping this file.")
 
     return audio_clips
 
