@@ -1,4 +1,5 @@
 import streamlit as st
+import urllib.parse
 from pytube import Search
 from moviepy.editor import VideoFileClip
 from pydub import AudioSegment
@@ -6,10 +7,12 @@ import os
 
 # Function to download videos from YouTube based on singer name
 def download_videos(singer_name, number_of_videos):
-    search_query = Search(singer_name)
+    # Encode singer name to handle special characters in the URL
+    singer_name_encoded = urllib.parse.quote(singer_name)
+    search_query = Search(singer_name_encoded)
     results = search_query.results
     downloaded_files = []
-    
+
     if len(results) < number_of_videos:
         st.warning(f"Only {len(results)} videos found. Downloading all of them.")
         number_of_videos = len(results)
