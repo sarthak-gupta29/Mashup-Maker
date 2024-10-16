@@ -1,15 +1,13 @@
 import streamlit as st
-import urllib.parse
 from pytube import Search
 from moviepy.editor import VideoFileClip
 from pydub import AudioSegment
 import os
+import re
 
 # Function to download videos from YouTube based on singer name
 def download_videos(singer_name, number_of_videos):
-    # Encode singer name to handle special characters in the URL
-    singer_name_encoded = urllib.parse.quote(singer_name)
-    search_query = Search(singer_name_encoded)
+    search_query = Search(singer_name)
     results = search_query.results
     downloaded_files = []
 
@@ -18,8 +16,12 @@ def download_videos(singer_name, number_of_videos):
         number_of_videos = len(results)
 
     for i, video in enumerate(results[:number_of_videos]):
+        # Sanitize the video title
+        sanitized_title = re.sub(r'[\\/*?:"<>|]', "", video.title)  # Remove special characters
+        sanitized_title = sanitized_title.replace(' ', '_')  # Replace spaces with underscores
+
         st.write(f"Downloading video {i + 1}/{number_of_videos}: {video.title}")
-        video_file = video.streams.filter(only_audio=True).first().download(filename=f"video_{i}.mp4")
+        video_file = video.streams.filter(only_audio=True).first().download(filename=f"{sanitized_title}.mp4")
         downloaded_files.append(video_file)
 
     return downloaded_files
@@ -31,7 +33,8 @@ def convert_videos_to_audio(downloaded_files, audio_duration):
     for i, video_file in enumerate(downloaded_files):
         st.write(f"Processing video {i + 1}/{len(downloaded_files)}: Converting to audio and trimming to {audio_duration} seconds.")
         video_clip = VideoFileClip(video_file)
-        audio_clip = video_clip.audio.subclip(0, audio_duration)
+        # Start audio from 2 seconds instead of 0
+        audio_clip = video_clip.audio.subclip(2, audio_duration + 2)
         audio_clip.write_audiofile(f"audio_{i}.mp3")
         audio_clips.append(f"audio_{i}.mp3")
         video_clip.close()
