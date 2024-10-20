@@ -17,6 +17,7 @@ def download_videos(singer_name, number_of_videos):
         'extract-audio': True,
         'audio-format': 'mp3',  # Attempt to convert to mp3
         'outtmpl': os.path.join(DOWNLOAD_DIR, 'video_%(id)s.%(ext)s'),  # Save to the download directory
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36',  # Added User-Agent
     }
     downloaded_files = []
     
@@ -66,7 +67,7 @@ def merge_audios(audio_clips, output_file_name):
         
         # Save the merged audio
         final_clip.write_audiofile(output_file_path)
-        st.success(f"Successfully created {output_file_name}!")
+        st.success(f"Successfully created {output_file_name}! Download it below:")
         
         # Close all clips to free resources
         for clip in clips:
@@ -110,7 +111,6 @@ def main():
                 cleanup(downloaded_files + audio_clips)
 
                 # Provide download link for the final mashup file
-                st.write(f"Mashup created successfully! Download your file below:")
                 st.download_button(label="Download Mashup", data=open(output_file_path, 'rb'), file_name=output_file_name)
 
             else:
