@@ -87,7 +87,7 @@ def main():
     st.write("Create a custom mashup of your favorite singer's songs by downloading YouTube videos and merging their audios.")
 
     # Input fields for user input
-    singer_name = st.text_input("Enter the Singer Name (e.g. 'Sonu Nigam')", value="Sonu Nigam")
+    singer_name = st.text_input("Enter the Singer Name (e.g. 'Arijit Singh')", value="Arijit Singh")
     number_of_videos = st.number_input("Enter the Number of Videos to Download (must be greater than 2)", min_value=2, step=1, value=2)  # Minimum 2 videos
     audio_duration = st.number_input("Enter Audio Duration for Each Video (in seconds, must be greater than 30)", min_value=30, step=1, value=30)  # Minimum 30 seconds
     output_file_name = st.text_input("Enter the Output File Name (e.g. 'mashup.mp3')", value="mashup.mp3")
