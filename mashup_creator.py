@@ -4,7 +4,6 @@ import os
 from moviepy.editor import AudioFileClip, concatenate_audioclips
 from pydub import AudioSegment
 
-# Ensure the download directory exists
 DOWNLOAD_DIR = './downloads/'
 if not os.path.exists(DOWNLOAD_DIR):
     os.makedirs(DOWNLOAD_DIR)
