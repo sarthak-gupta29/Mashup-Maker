@@ -1,4 +1,5 @@
+yt-dlp
 moviepy
 pydub
-pytube
 streamlit
+ffmpeg-python

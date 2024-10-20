@@ -1,24 +1,43 @@
 import sys
 import os
-from pytube import Search
-from moviepy.editor import VideoFileClip, concatenate_audioclips
+import re
+import yt_dlp
+from moviepy.editor import AudioFileClip, concatenate_audioclips
+
+def sanitize_filename(title):
+    # Remove any characters that are invalid for filenames
+    return re.sub(r'[<>:"/\\|?*]', '', title)
 
 def download_videos(singer_name, number_of_videos):
-    search_query = Search(singer_name)
-    results = search_query.results
     downloaded_files = []
-    
-    if len(results) < number_of_videos:
-        print(f"Only {len(results)} videos found. Downloading all of them.")
-        number_of_videos = len(results)
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'noplaylist': True,  # Avoid downloading playlists
+    }
 
-    for i, video in enumerate(results[:number_of_videos]):
+    search_url = f"https://www.youtube.com/results?search_query={singer_name}"
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
-            print(f"Downloading video {i + 1}/{number_of_videos}: {video.title}")
-            video_file = video.streams.filter(only_audio=True).first().download(filename=f"video_{i}.mp4")
-            downloaded_files.append(video_file)
+            info_dict = ydl.extract_info(search_url, download=False)
+            entries = info_dict['entries']
+            if len(entries) < number_of_videos:
+                print(f"Only {len(entries)} videos found. Downloading all of them.")
+                number_of_videos = len(entries)
+
+            for i in range(number_of_videos):
+                video_title = sanitize_filename(entries[i]['title'])
+                print(f"Downloading video {i + 1}/{number_of_videos}: {video_title}")
+                ydl.download([entries[i]['url']])
+                downloaded_files.append(f"{video_title}.mp3")
+                
         except Exception as e:
-            print(f"Error downloading video {i + 1}: {e}. Skipping this video.")
+            print(f"Error downloading videos: {e}")
+            return []
 
     return downloaded_files
 
@@ -27,13 +46,11 @@ def convert_videos_to_audio(downloaded_files, audio_duration):
 
     for i, video_file in enumerate(downloaded_files):
         try:
-            print(f"Processing video {i + 1}/{len(downloaded_files)}: Converting to audio and cutting {audio_duration} seconds.")
-            video_clip = VideoFileClip(video_file)
-            audio_clip = video_clip.audio.subclip(0, audio_duration)
+            print(f"Processing audio {i + 1}/{len(downloaded_files)}: Trimming to {audio_duration} seconds.")
+            audio_clip = AudioFileClip(video_file).subclip(0, audio_duration)
             audio_clips.append(audio_clip)
-            video_clip.close()
         except Exception as e:
-            print(f"Error processing video {i + 1}: {e}. Skipping this file.")
+            print(f"Error processing audio {i + 1}: {e}. Skipping this file.")
 
     return audio_clips
 

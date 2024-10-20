@@ -1,47 +1,59 @@
 import streamlit as st
-from pytube import Search
-from moviepy.editor import VideoFileClip
+import re
+import yt_dlp
+from moviepy.editor import AudioFileClip
 from pydub import AudioSegment
 import os
 
-# Function to download videos from YouTube based on singer name
-def download_videos(singer_name, number_of_videos):
-    search_query = Search(singer_name)
-    results = search_query.results
-    downloaded_files = []
-    
-    if len(results) < number_of_videos:
-        st.warning(f"Only {len(results)} videos found. Downloading all of them.")
-        number_of_videos = len(results)
+def sanitize_filename(title):
+    return re.sub(r'[<>:"/\\|?*]', '', title)
 
-    for i, video in enumerate(results[:number_of_videos]):
+def download_videos(singer_name, number_of_videos):
+    downloaded_files = []
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+        'noplaylist': True,
+    }
+
+    search_url = f"https://www.youtube.com/results?search_query={singer_name}"
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         try:
-            st.write(f"Downloading video {i + 1}/{number_of_videos}: {video.title}")
-            video_file = video.streams.filter(only_audio=True).first().download(filename=f"video_{i}.mp4")
-            downloaded_files.append(video_file)
+            info_dict = ydl.extract_info(search_url, download=False)
+            entries = info_dict['entries']
+            if len(entries) < number_of_videos:
+                st.warning(f"Only {len(entries)} videos found. Downloading all of them.")
+                number_of_videos = len(entries)
+
+            for i in range(number_of_videos):
+                video_title = sanitize_filename(entries[i]['title'])
+                st.write(f"Downloading video {i + 1}/{number_of_videos}: {video_title}")
+                ydl.download([entries[i]['url']])
+                downloaded_files.append(f"{video_title}.mp3")
+                
         except Exception as e:
-            st.warning(f"Error downloading video {i + 1}: {e}. Skipping this video.")
+            st.warning(f"Error downloading videos: {e}")
+            return []
 
     return downloaded_files
 
-# Function to convert videos to audio and trim the audio
 def convert_videos_to_audio(downloaded_files, audio_duration):
     audio_clips = []
 
     for i, video_file in enumerate(downloaded_files):
         try:
-            st.write(f"Processing video {i + 1}/{len(downloaded_files)}: Converting to audio and trimming to {audio_duration} seconds.")
-            video_clip = VideoFileClip(video_file)
-            audio_clip = video_clip.audio.subclip(0, audio_duration)
-            audio_clip.write_audiofile(f"audio_{i}.mp3")
-            audio_clips.append(f"audio_{i}.mp3")
-            video_clip.close()
+            st.write(f"Processing audio {i + 1}/{len(downloaded_files)}: Trimming to {audio_duration} seconds.")
+            audio_clip = AudioFileClip(video_file).subclip(0, audio_duration)
+            audio_clips.append(audio_clip)
         except Exception as e:
-            st.warning(f"Error processing video {i + 1}: {e}. Skipping this file.")
+            st.warning(f"Error processing audio {i + 1}: {e}. Skipping this file.")
 
     return audio_clips
 
-# Function to merge all audio clips into one
 def merge_audios(audio_clips, output_file_name):
     combined = AudioSegment.empty()
 
@@ -53,7 +65,6 @@ def merge_audios(audio_clips, output_file_name):
     combined.export(output_file_name, format="mp3")
     st.success(f"Successfully created {output_file_name}!")
 
-# Function to cleanup downloaded files after processing
 def cleanup(files):
     for file in files:
         os.remove(file)
@@ -64,7 +75,7 @@ def main():
 
     # Input fields for user input
     singer_name = st.text_input("Enter the Singer Name (e.g. 'Sharry Maan')", value="Sharry Maan")
-    number_of_videos = st.number_input("Enter the Number of Videos to Download (must be greater than 10)", min_value=10, step=1, value=10)
+    number_of_videos = st.number_input("Enter the Number of Videos to Download (must be greater than 1)", min_value=2, step=1, value=2)
     audio_duration = st.number_input("Enter Audio Duration for Each Video (in seconds, must be greater than 20)", min_value=20, step=1, value=30)
     output_file_name = st.text_input("Enter the Output File Name (e.g. 'mashup.mp3')", value="mashup.mp3")
 
@@ -84,7 +95,7 @@ def main():
             merge_audios(audio_clips, output_file_name)
 
             # Step 4: Cleanup downloaded files
-            cleanup(downloaded_files + audio_clips)
+            cleanup(downloaded_files)
 
             st.write(f"Mashup created successfully! Download your file: {output_file_name}")
 
