@@ -2,7 +2,7 @@ import streamlit as st
 import yt_dlp
 import os
 from moviepy.editor import AudioFileClip, concatenate_audioclips
-import ffmpeg
+from pydub import AudioSegment
 
 # Ensure the download directory exists
 DOWNLOAD_DIR = './downloads/'
@@ -28,9 +28,10 @@ def download_videos(singer_name, number_of_videos):
                 video_id = entry['id']
                 file_name = os.path.join(DOWNLOAD_DIR, f"video_{video_id}.webm")  # Expecting .webm files
 
-                # Convert to mp3 using ffmpeg
+                # Convert to mp3 using pydub
                 mp3_file = os.path.join(DOWNLOAD_DIR, f"video_{video_id}.mp3")
-                ffmpeg.input(file_name).output(mp3_file).run(overwrite_output=True)
+                audio = AudioSegment.from_file(file_name)  # Load the webm file
+                audio.export(mp3_file, format="mp3")  # Export as mp3
                 downloaded_files.append(mp3_file)  # Use the mp3 file now
 
     except Exception as e:
