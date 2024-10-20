@@ -12,7 +12,7 @@ if not os.path.exists(DOWNLOAD_DIR):
 def download_videos(singer_name, number_of_videos):
     search_query = f"ytsearch{number_of_videos}:{singer_name}"
     ydl_opts = {
-        'format': 'bestaudio/best',  # Download best available audio
+        'format': 'worstaudio',   # Download best available audio
         'noplaylist': True,
         'extract-audio': True,
         'audio-format': 'mp3',  # Attempt to convert to mp3
